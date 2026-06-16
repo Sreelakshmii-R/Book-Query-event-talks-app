@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const helperAddTags = document.getElementById('helper-add-tags');
     const helperShorten = document.getElementById('helper-shorten');
     const helperRestore = document.getElementById('helper-restore');
+    const exportCsvBtn = document.getElementById('export-csv-btn');
     
     // Toast Elements
     const toast = document.getElementById('toast');
@@ -75,6 +76,9 @@ document.addEventListener('DOMContentLoaded', () => {
     helperAddTags.addEventListener('click', appendHashtags);
     helperShorten.addEventListener('click', autoShortenTweet);
     helperRestore.addEventListener('click', restoreOriginalTweet);
+    if (exportCsvBtn) {
+        exportCsvBtn.addEventListener('click', exportToCSV);
+    }
 
     // Functions
     async function fetchReleases(forceRefresh = false) {
@@ -162,6 +166,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h3>${release.title}</h3>
                     </div>
                     <div class="card-actions">
+                        <button class="action-icon-btn copy-card-btn" title="Copy to Clipboard" aria-label="Copy update text to clipboard">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
                         <button class="action-icon-btn select-tweet-btn" title="Select to Tweet" aria-label="Select update to Tweet">
                             <i class="fa-brands fa-x-twitter"></i>
                         </button>
@@ -197,6 +204,20 @@ document.addEventListener('DOMContentLoaded', () => {
             selectBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 selectReleaseForTweet(release, card);
+            });
+
+            // Copy to Clipboard Button Click
+            const copyCardBtn = card.querySelector('.copy-card-btn');
+            copyCardBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                try {
+                    const textToCopy = `${release.title}\n\n${release.summary}\n\nRead more at: ${release.link}`;
+                    await navigator.clipboard.writeText(textToCopy);
+                    showToast('Release note copied to clipboard!');
+                } catch (err) {
+                    console.error('Failed to copy card: ', err);
+                    showToast('Failed to copy to clipboard.', true);
+                }
             });
 
             // View Source Link Click
@@ -362,6 +383,64 @@ document.addEventListener('DOMContentLoaded', () => {
         const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
         window.open(twitterIntentUrl, '_blank');
         showToast('Opening X / Twitter...');
+    }
+
+    function exportToCSV() {
+        if (filteredReleases.length === 0) {
+            showToast('No releases available to export.', true);
+            return;
+        }
+
+        // CSV Header
+        const headers = ['ID', 'Title', 'Date', 'Category', 'Summary', 'Source Link'];
+        
+        // Helper to escape values for CSV compatibility
+        const escapeCSVValue = (val) => {
+            if (val === null || val === undefined) return '';
+            let formatted = val.toString().replace(/"/g, '""');
+            if (formatted.includes(',') || formatted.includes('\n') || formatted.includes('"')) {
+                formatted = `"${formatted}"`;
+            }
+            return formatted;
+        };
+
+        // Build CSV content
+        const rows = filteredReleases.map(release => [
+            release.id,
+            release.title,
+            formatDate(release.published || release.updated),
+            release.category,
+            release.summary,
+            release.link
+        ]);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(escapeCSVValue).join(','))
+        ].join('\n');
+
+        // Create blob and download
+        try {
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            // Format filename with category and date
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const categoryStr = currentCategory.toLowerCase();
+            const filename = `bigquery_releases_${categoryStr}_${dateStr}.csv`;
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast(`Exported ${filteredReleases.length} releases to CSV!`);
+        } catch (error) {
+            console.error('Failed to export CSV:', error);
+            showToast('Failed to export CSV.', true);
+        }
     }
 
     // Helper Utility: Date Formatting (converts XML timestamps to readable dates)
