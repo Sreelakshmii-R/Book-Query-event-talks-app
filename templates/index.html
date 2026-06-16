@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BigQuery Release Notes Tracker</title>
+    <meta name="description" content="A premium, interactive dashboard to track the latest Google Cloud BigQuery release notes and easily share updates.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Main Style Sheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Background Glow Blobs for Glassmorphism Context -->
+    <div class="glow-bg">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Floating Header -->
+        <header class="main-header" id="main-header">
+            <div class="logo-area">
+                <div class="bq-logo">
+                    <i class="fa-solid fa-database"></i>
+                </div>
+                <div>
+                    <h1>BigQuery Releases</h1>
+                    <p class="subtitle">Live Update Feed &amp; Social Sharer</p>
+                </div>
+            </div>
+            <div class="actions-area">
+                <button id="refresh-btn" class="btn btn-primary" title="Refresh Release Notes">
+                    <i class="fa-solid fa-arrows-rotate" id="refresh-icon"></i>
+                    <span>Refresh</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="dashboard">
+            <!-- Left Side: Controls & Feed -->
+            <section class="feed-section">
+                <!-- Search & Filters -->
+                <div class="controls-card glass-panel">
+                    <div class="search-box" id="search-box-container">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="search-input" placeholder="Search release notes by keyword..." aria-label="Search release notes">
+                    </div>
+                    <div class="filter-tabs" id="filter-tabs-container">
+                        <button class="filter-tab active" data-category="all" id="tab-all">All Notes</button>
+                        <button class="filter-tab" data-category="Feature" id="tab-feature">
+                            <span class="dot dot-feature"></span>Features
+                        </button>
+                        <button class="filter-tab" data-category="Update" id="tab-update">
+                            <span class="dot dot-update"></span>Updates
+                        </button>
+                        <button class="filter-tab" data-category="Fix" id="tab-fix">
+                            <span class="dot dot-fix"></span>Fixes
+                        </button>
+                        <button class="filter-tab" data-category="Deprecation" id="tab-deprecation">
+                            <span class="dot dot-deprecation"></span>Deprecations
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Feed Area -->
+                <div class="feed-header">
+                    <h2 id="feed-title">All Release Notes</h2>
+                    <span id="results-count" class="badge-count">Loading...</span>
+                </div>
+
+                <!-- Release Notes Feed -->
+                <div id="notes-feed" class="notes-feed">
+                    <!-- Loading State -->
+                    <div class="loading-state" id="loading-state">
+                        <div class="spinner-outer">
+                            <div class="spinner-inner"></div>
+                        </div>
+                        <p>Fetching the latest release notes from Google BigQuery...</p>
+                    </div>
+                    
+                    <!-- Empty State (Hidden) -->
+                    <div class="empty-state hidden" id="empty-state">
+                        <i class="fa-solid fa-inbox empty-icon"></i>
+                        <h3>No release notes found</h3>
+                        <p>Try adjusting your search keywords or filter category.</p>
+                    </div>
+
+                    <!-- Notes will be dynamically rendered here -->
+                </div>
+            </section>
+
+            <!-- Right Side: Tweet Builder (Sticky Panel) -->
+            <section class="social-section">
+                <div class="tweet-composer-card glass-panel sticky-card" id="tweet-card">
+                    <div class="composer-header">
+                        <div class="x-logo">
+                            <i class="fa-brands fa-x-twitter"></i>
+                        </div>
+                        <h3>Share on X / Twitter</h3>
+                    </div>
+                    
+                    <div class="composer-body" id="composer-body">
+                        <!-- Empty Composer State -->
+                        <div class="empty-composer-state" id="empty-composer">
+                            <div class="share-illustration">
+                                <i class="fa-solid fa-paper-plane animate-float"></i>
+                            </div>
+                            <h4>No note selected</h4>
+                            <p>Select any release note from the feed on the left to customize and tweet about it.</p>
+                        </div>
+
+                        <!-- Active Composer State (Hidden initially) -->
+                        <div class="active-composer hidden" id="active-composer">
+                            <div class="selected-note-preview">
+                                <span class="preview-label">Selected Note:</span>
+                                <h4 id="preview-note-title">Release Note Title</h4>
+                                <span class="note-date" id="preview-note-date">June 16, 2026</span>
+                            </div>
+
+                            <div class="tweet-input-wrapper">
+                                <label for="tweet-textarea" class="sr-only">Tweet content</label>
+                                <textarea id="tweet-textarea" maxlength="280" placeholder="What's happening?"></textarea>
+                                <div class="tweet-character-counter">
+                                    <svg class="progress-ring" width="24" height="24">
+                                        <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.1)" stroke-width="2" fill="transparent" r="10" cx="12" cy="12"/>
+                                        <circle class="progress-ring__circle" id="char-progress" stroke="#6366f1" stroke-width="2" fill="transparent" r="10" cx="12" cy="12"/>
+                                    </svg>
+                                    <span id="char-counter">280</span>
+                                </div>
+                            </div>
+
+                            <!-- Formatting helpers / templates -->
+                            <div class="tweet-helpers">
+                                <button class="helper-btn" id="helper-add-tags" title="Add Hashtags">
+                                    <i class="fa-solid fa-hashtag"></i> Add Tags
+                                </button>
+                                <button class="helper-btn" id="helper-shorten" title="Shorten content">
+                                    <i class="fa-solid fa-compress"></i> Shorten
+                                </button>
+                                <button class="helper-btn" id="helper-restore" title="Restore original text">
+                                    <i class="fa-solid fa-arrow-rotate-left"></i> Restore
+                                </button>
+                            </div>
+
+                            <!-- Live Card Preview -->
+                            <div class="tweet-card-preview">
+                                <div class="tweet-preview-header">
+                                    <div class="user-avatar">
+                                        <i class="fa-solid fa-user"></i>
+                                    </div>
+                                    <div class="user-info">
+                                        <span class="user-name">You</span>
+                                        <span class="user-handle">@your_handle</span>
+                                    </div>
+                                </div>
+                                <div class="tweet-preview-content" id="tweet-preview-text">
+                                    Preview text will go here...
+                                </div>
+                                <div class="tweet-preview-link-card">
+                                    <div class="link-card-content">
+                                        <span class="link-domain">cloud.google.com</span>
+                                        <span class="link-title" id="link-preview-title">BigQuery Release Notes</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="composer-footer">
+                                <button class="btn btn-secondary" id="copy-tweet-btn">
+                                    <i class="fa-regular fa-copy"></i>
+                                    <span>Copy Text</span>
+                                </button>
+                                <button class="btn btn-x" id="post-tweet-btn">
+                                    <i class="fa-brands fa-x-twitter"></i>
+                                    <span>Post to X</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>BigQuery Release Notes Tracker &bull; Powered by Flask &amp; Google Cloud Feeds</p>
+        </footer>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast hidden" id="toast">
+        <i class="fa-solid fa-check-circle toast-icon"></i>
+        <span class="toast-message" id="toast-message">Action successful!</span>
+    </div>
+
+    <!-- Main JavaScript -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
